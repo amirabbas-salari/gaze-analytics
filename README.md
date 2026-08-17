@@ -1,211 +1,407 @@
-# Advertisement Gaze Analytics
+# Advertisement Gaze Analytics 👁️
 
-سامانهٔ تحلیل نگاه و توجه بینندگان تبلیغات با استفاده از **Deep Learning**، **MediaPipe Face Landmarker** و **L2CS-Net**.
+A deep learning based computer vision system for detecting, tracking, and analyzing viewers' gaze and attention toward digital advertisements.
 
-این پروژه یک سامانهٔ مستقل برای تحلیل رفتار دیداری افرادی است که در مقابل یک نمایشگر تبلیغاتی قرار دارند. سیستم با دریافت تصویر زنده از دوربین یا فایل ویدئویی، چهره و نقاط صورت را استخراج می‌کند، جهت نگاه را تخمین می‌زند، هویت و مسیر حرکت افراد را مدیریت می‌کند، نقطهٔ نگاه روی صفحه را محاسبه می‌کند و در نهایت رویدادهای نگاه و شاخص‌های توجه را برای تحلیل‌های بعدی ذخیره می‌کند.
+This project combines MediaPipe Face Landmarker and L2CS-Net to estimate facial landmarks, head pose, and gaze direction in real time. The system then maps the estimated gaze to the screen, detects attention sessions, stores gaze events, and generates analytical data such as gaze points and heatmaps.
 
----
-
-## فهرست مطالب
-
-- [هدف پروژه](#هدف-پروژه)
-- [ویژگی‌ها](#ویژگیها)
-- [معماری](#معماری)
-- [Pipeline پردازش](#pipeline-پردازش)
-- [تکنولوژی‌ها](#تکنولوژیها)
-- [ساختار پروژه](#ساختار-پروژه)
-- [پیش‌نیازها](#پیشنیازها)
-- [نصب](#نصب)
-- [مدل‌های موردنیاز](#مدلهای-موردنیاز)
-- [اجرای پروژه](#اجرای-پروژه)
-- [کالیبراسیون](#کالیبراسیون)
-- [شناسايی افراد](#شناسايی-افراد)
-- [ذخیره‌سازی داده](#ذخیرهسازی-داده)
-- [Heatmap](#heatmap)
-- [خروجی‌های سیستم](#خروجیهای-سیستم)
-- [معماری ماژول‌ها](#معماری-ماژولها)
-- [ملاحظات فنی](#ملاحظات-فنی)
-- [محدودیت‌های فعلی](#محدودیتهای-فعلی)
-- [نقشه راه](#نقشه-راه)
-- [مجوز و ملاحظات استفاده](#مجوز-و-ملاحظات-استفاده)
+More than just detecting whether someone is looking at a screen, the goal is to understand **where people look, for how long they look, and how much attention an advertisement receives**.
 
 ---
 
-## هدف پروژه
+## See it live and in action 📺 - Click the image!
 
-هدف اصلی پروژه تبدیل اطلاعات خام تصویر و ویدئو به داده‌های قابل اندازه‌گیری دربارهٔ توجه بینندگان تبلیغات است.
+Link to be added.
 
-سیستم در مسیر توسعه خود باید بتواند اطلاعات زیر را تولید کند:
+# Setup 🪛
 
-- تعداد بینندگان قابل مشاهده
-- Track ID هر فرد در طول فریم‌های متوالی
-- Person ID برای افراد شناخته‌شده
-- جهت تقریبی نگاه
-- وضعیت Head Pose
-- نقطهٔ نگاه روی صفحه
-- مدت زمان توجه
-- میانگین و بیشینهٔ Attention Score
-- رویدادهای Look Event
-- Heatmap توجه روی تبلیغ
-- آمار تجمیعی به تفکیک فرد و تبلیغ
+### 1. Clone the repository
 
-> **نکته:** تشخیص «نگاه به تبلیغ» با تشخیص صرفاً روبه‌روی دوربین بودن فرد یکسان نیست. سیستم از Gaze Estimation، Head Pose، Calibration و منطق Attention برای رسیدن به این تصمیم استفاده می‌کند.
-
----
-
-## ویژگی‌ها
-
-### پردازش تصویر و بینایی ماشین
-
-- پشتیبانی از Webcam و فایل ویدئویی
-- تشخیص و Landmarking چهره با MediaPipe Face Landmarker
-- دریافت 478 landmark سه‌بعدی صورت
-- استخراج Head Pose
-- استخراج ناحیهٔ چهره و چشم
-
-### Deep Learning
-
-- استفاده از L2CS-Net برای Gaze Estimation
-- Backbone مبتنی بر ResNet-50
-- تخمین Yaw و Pitch نگاه
-- اجرای inference روی CPU یا GPU
-
-### Tracking
-
-- Track ID مستقل از Person ID
-- نگهداری Track در زمان از دست رفتن موقت Detection
-- معماری قابل ارتقا به ByteTrack / BoT-SORT
-
-### Face Recognition
-
-- استفاده از InsightFace / ArcFace
-- تولید Face Embedding
-- مقایسه با Cosine Similarity
-- Gallery مستقل برای شناسه‌های شناخته‌شده
-
-### Attention Analytics
-
-- محاسبهٔ Attention Score
-- مدیریت Session نگاه
-- تحمل قطع کوتاه‌مدت نگاه
-- ثبت Look Event
-- تحلیل آماری
-- Heatmap
-
-### Storage
-
-- SQLite
-- ذخیرهٔ افراد
-- تبلیغات
-- Look Event
-- Gaze Point
-- آمارهای تجمیعی
-
----
-
-## معماری
-
-معماری سطح بالای سیستم:
-
-```text
-                     CAMERA / VIDEO
-                           │
-                           ▼
-                    Frame Acquisition
-                           │
-                           ▼
-               MediaPipe Face Landmarker
-                           │
-             ┌─────────────┼─────────────┐
-             │             │             │
-             ▼             ▼             ▼
-         Landmarks     Head Geometry   Face Crop
-             │             │             │
-             │             │             ▼
-             │             │          L2CS-Net
-             │             │          ResNet-50
-             │             │             │
-             │             │       Yaw + Pitch
-             │             │             │
-             └─────────────┴──────┬──────┘
-                                   ▼
-                              Gaze Fusion
-                                   │
-                                   ▼
-                            Gaze Direction
-                                   │
-                                   ▼
-                           Screen Calibration
-                                   │
-                                   ▼
-                              Gaze Point
-                                   │
-                                   ▼
-                          Attention Engine
-                                   │
-                                   ▼
-                           Session Manager
-                                   │
-                    ┌──────────────┴──────────────┐
-                    ▼                             ▼
-                Statistics                     SQLite
-                    │                             │
-                    ├────────► Heatmap            │
-                    ├────────► JSON / CSV         │
-                    └────────► Reports            │
+```bash
+git clone https://github.com/your-username/advertisement-gaze-analytics.git
+cd advertisement-gaze-analytics
 ```
 
----
+### 2. Create a virtual environment
 
-## Pipeline پردازش
+```bash
+python -m venv .venv
+```
 
-برای هر فریم، مراحل اصلی به‌ترتیب اجرا می‌شوند:
+Activate it on Windows:
 
-1. دریافت فریم از دوربین یا ویدئو
-2. تبدیل رنگ BGR به RGB برای MediaPipe
-3. اجرای Face Landmarker
-4. استخراج Face Bounding Box
-5. تطبیق Detection با Trackهای قبلی
-6. تخصیص یا حفظ Track ID
-7. استخراج Face Crop
-8. تخمین Head Pose
-9. اجرای Face Recognition در صورت فعال بودن
-10. اجرای L2CS-Net
-11. استخراج Yaw/Pitch نگاه
-12. ترکیب Gaze و Head Pose
-13. تبدیل نگاه به مختصات صفحه با Calibration
-14. محاسبهٔ Attention Score
-15. به‌روزرسانی Session
-16. ذخیرهٔ Gaze Point در صورت معتبر بودن
-17. تبدیل Session تکمیل‌شده به Look Event
-18. به‌روزرسانی آمار
-19. ذخیرهٔ اطلاعات در SQLite
-20. نمایش Overlay روی فریم
+```bash
+.venv\\Scripts\\activate
+```
 
----
+Activate it on Linux/macOS:
 
-## تکنولوژی‌ها
+```bash
+source .venv/bin/activate
+```
 
-| بخش | تکنولوژی |
-|---|---|
-| زبان | Python |
-| پردازش تصویر | OpenCV |
-| Face / Landmarks | MediaPipe Face Landmarker |
-| Gaze Estimation | L2CS-Net |
-| Backbone | ResNet-50 |
-| Deep Learning Framework | PyTorch |
-| Face Recognition | InsightFace / ArcFace |
-| Inference | ONNX Runtime / PyTorch |
-| Tracking | Lightweight IoU Tracker، قابل ارتقا به ByteTrack |
-| Calibration | NumPy Polynomial Regression |
-| Database | SQLite |
-| Numerical Computing | NumPy |
-| Scientific Computing | SciPy |
-| Data Analysis | Scikit-learn |
+### 3. Install the dependencies
 
----
+```bash
+pip install -r requirements.txt
+```
 
-## ساختار پروژه
+# Models 🧠
+
+This project uses pretrained deep learning models instead of training the complete system from scratch.
+
+### MediaPipe Face Landmarker
+
+Used for:
+
+- Face detection
+- 478 facial landmarks
+- Eye landmarks
+- Facial transformation matrix
+- Face geometry
+- Head pose estimation
+
+Place the model here:
+
+```text
+models/mediapipe/face_landmarker.task
+```
+
+### L2CS-Net
+
+Used for deep learning based gaze estimation.
+
+The model predicts:
+
+- Yaw
+- Pitch
+
+Place the pretrained model here:
+
+```text
+models/l2cs/L2CSNet_gaze360.pkl
+```
+
+# Running 🚀
+
+## Run with Webcam
+
+```bash
+python main.py
+```
+
+By default the application uses camera index `0`.
+
+If your machine has multiple cameras, specify the camera:
+
+```bash
+python main.py --camera 1
+```
+
+## Run with a Video
+
+```bash
+python main.py --source video --video data/input/test.mp4
+```
+
+## Run without Face Recognition
+
+For testing the gaze pipeline without the additional recognition model:
+
+```bash
+python main.py --no-recognition
+```
+
+This is useful when testing:
+
+- Face Landmarks
+- Head Pose
+- L2CS
+- Gaze Fusion
+- Attention
+
+# What the system does 🔍
+
+The complete processing pipeline is:
+
+```text
+Camera / Video
+      ↓
+MediaPipe Face Landmarker
+      ↓
+Face Landmarks
+      ↓
+Head Pose Estimation
+      ↓
+Face Tracking
+      ↓
+Face Recognition
+      ↓
+L2CS-Net
+      ↓
+Gaze Yaw / Pitch
+      ↓
+Gaze Fusion
+      ↓
+Screen Calibration
+      ↓
+Gaze Point
+      ↓
+Attention Analysis
+      ↓
+Look Session
+      ↓
+Analytics
+      ↓
+SQLite / Heatmap
+```
+
+# Face Detection & Landmarks 👤
+
+MediaPipe Face Landmarker is responsible for extracting detailed facial information.
+
+The system uses:
+
+- 478 3D facial landmarks
+- Eye landmarks
+- Facial transformation matrix
+- Head orientation information
+
+These features are used by the gaze estimation pipeline.
+
+# Gaze Estimation 👁️
+
+L2CS-Net is used as the main gaze estimation model.
+
+The model receives a face crop and predicts:
+
+```text
+Yaw
+Pitch
+```
+
+The predicted angles are then converted into a gaze direction vector.
+
+```text
+Face
+ ↓
+L2CS-Net
+ ↓
+Yaw + Pitch
+ ↓
+Gaze Direction
+```
+
+The project uses the pretrained Gaze360 model provided by L2CS-Net.
+
+# Gaze Fusion 🔀
+
+Gaze estimation is combined with head pose information.
+
+```text
+L2CS Gaze
+    +
+Head Pose
+    ↓
+Gaze Fusion
+    ↓
+Final Gaze Direction
+```
+
+This provides a more stable representation of the viewer's attention direction than relying on a single signal.
+
+# Screen Calibration 🎯
+
+The system uses a calibration stage to map gaze direction to normalized screen coordinates.
+
+Example:
+
+```text
+Gaze Direction
+      ↓
+Calibration Model
+      ↓
+Screen Coordinate
+      ↓
+(x, y)
+```
+
+The predicted gaze point is represented using normalized coordinates:
+
+```text
+x = 0.0 → 1.0
+y = 0.0 → 1.0
+```
+
+Calibration data can be stored in:
+
+```text
+data/calibration/screen_calibration.json
+```
+
+# Attention Analysis 🧠
+
+The system does not consider every detected face as a viewer looking at the advertisement.
+
+Attention is determined using several signals:
+
+- Gaze direction
+- Gaze confidence
+- Head pose
+- Screen gaze point
+- Attention score
+
+The result is:
+
+```text
+LOOKING
+```
+
+or:
+
+```text
+NOT LOOKING
+```
+
+# Look Sessions ⏱️
+
+Continuous attention frames are grouped into a single look session.
+
+For example:
+
+```text
+Frame 1 → Looking
+Frame 2 → Looking
+Frame 3 → Looking
+Frame 4 → Looking
+Frame 5 → Not Looking
+```
+
+can become:
+
+```text
+Look Session
+Start: 10.2s
+End:   14.7s
+Duration: 4.5s
+```
+
+Short interruptions are tolerated so that one continuous look is not split into multiple events.
+
+# Face Tracking 🎯
+
+Every detected face receives a temporary `Track ID`.
+
+```text
+Face
+ ↓
+Tracker
+ ↓
+Track ID
+```
+
+Example:
+
+```text
+Track ID = 7
+```
+
+The Track ID is intentionally different from the persistent identity assigned by face recognition.
+
+```text
+Track ID
+   ↓
+Face Recognition
+   ↓
+Person ID
+```
+
+# Face Recognition 🧑
+
+InsightFace / ArcFace is used to generate face embeddings.
+
+```text
+Face
+ ↓
+ArcFace
+ ↓
+Embedding
+ ↓
+Similarity Search
+ ↓
+Person ID
+```
+
+Known identities are stored in:
+
+```text
+data/faces/gallery.json
+```
+
+Face recognition can also be disabled during development:
+
+```bash
+python main.py --no-recognition
+```
+
+# Database 💾
+
+The system uses SQLite to store analytical data.
+
+Main tables include:
+
+```text
+persons
+ads
+analytics_sessions
+look_events
+gaze_points
+person_statistics
+ad_statistics
+```
+
+The database is created automatically when the application starts.
+
+Default location:
+
+```text
+data/output/gaze_analytics.db
+```
+
+# Gaze Heatmaps 🔥
+
+Every valid calibrated gaze point can be stored in the database.
+
+```text
+Gaze Points
+     ↓
+Density Estimation
+     ↓
+Heatmap
+```
+
+Heatmaps can be generated for:
+
+- A specific advertisement
+- A specific person
+- An entire dataset
+
+Example output:
+
+```text
+Advertisement
+      ↓
+Gaze Points
+      ↓
+Heatmap
+```
+
+Generated heatmaps can be stored in:
+
+```text
+data/output/
+```
+
+# Project Structure 📁
 
 ```text
 advertisement-gaze-analytics/
@@ -214,691 +410,146 @@ advertisement-gaze-analytics/
 │
 ├── src/
 │   ├── config/
-│   │   └── settings.py
-│   │
 │   ├── input/
-│   │   ├── camera.py
-│   │   └── video.py
-│   │
 │   ├── vision/
-│   │   ├── face_landmarker.py
-│   │   ├── face_utils.py
-│   │   └── head_pose.py
-│   │
 │   ├── gaze/
-│   │   ├── l2cs.py
-│   │   ├── gaze_estimator.py
-│   │   └── gaze_fusion.py
-│   │
 │   ├── tracking/
-│   │   └── tracker.py
-│   │
 │   ├── recognition/
-│   │   └── recognizer.py
-│   │
 │   ├── calibration/
-│   │   └── screen_calibration.py
-│   │
 │   ├── attention/
-│   │   ├── attention_engine.py
-│   │   └── session_manager.py
-│   │
 │   ├── analytics/
-│   │   ├── statistics.py
-│   │   └── heatmap.py
-│   │
 │   ├── storage/
-│   │   ├── models.py
-│   │   └── database.py
-│   │
 │   └── visualization/
-│       └── overlay.py
 │
 ├── models/
 │   ├── mediapipe/
-│   │   └── face_landmarker.task
-│   │
 │   └── l2cs/
-│       └── L2CSNet_gaze360.pkl
 │
 ├── data/
 │   ├── input/
-│   ├── output/
 │   ├── calibration/
-│   └── faces/
+│   ├── faces/
+│   └── output/
 │
 ├── tests/
+│
 ├── scripts/
 │
 ├── requirements.txt
-├── README.md
-└── .gitignore
+└── README.md
 ```
 
----
-
-## پیش‌نیازها
-
-### Python
-
-پروژه برای Python 3.x طراحی شده است. برای محیط توسعهٔ فعلی توصیه می‌شود از یک Virtual Environment استفاده شود.
-
-### سیستم‌عامل
-
-- Windows
-- Linux
-
-### سخت‌افزار
-
-حداقل:
-
-- CPU چند هسته‌ای
-- 8GB RAM
-- Webcam یا فایل ویدئویی
-
-توصیه‌شده برای inference سریع‌تر و آموزش/Fine-tuning:
-
-- 16GB RAM یا بیشتر
-- GPU NVIDIA سازگار با CUDA
-
----
-
-## نصب
-
-ابتدا Repository را دریافت کرده و وارد پوشهٔ پروژه شوید.
-
-سپس Virtual Environment بسازید:
-
-```bash
-python -m venv .venv
-```
-
-### Windows
-
-```bash
-.venv\Scripts\activate
-```
-
-### Linux / macOS
-
-```bash
-source .venv/bin/activate
-```
-
-سپس pip را به‌روزرسانی کنید:
-
-```bash
-python -m pip install --upgrade pip
-```
-
-و وابستگی‌ها را نصب کنید:
-
-```bash
-pip install -r requirements.txt
-```
-
-> برای نصب نسخهٔ GPU مربوط به PyTorch یا ONNX Runtime باید نسخهٔ مناسب CUDA و درایور سیستم انتخاب شود. در محیط توسعهٔ اولیه، اجرای CPU نیز امکان‌پذیر است.
-
----
-
-## مدل‌های موردنیاز
-
-پروژه از دو مدل اصلی استفاده می‌کند:
-
-### 1. MediaPipe Face Landmarker
-
-فایل مدل باید در مسیر زیر قرار گیرد:
-
-```text
-models/mediapipe/face_landmarker.task
-```
-
-این مدل برای Face Detection، Face Landmarking، Blendshape و Face Transformation استفاده می‌شود.
-
-### 2. L2CS-Net
-
-مدل pretrained مورد استفاده در پروژه:
-
-```text
-models/l2cs/L2CSNet_gaze360.pkl
-```
-
-این مدل وظیفهٔ Gaze Estimation را بر عهده دارد و خروجی اصلی آن Yaw و Pitch است.
-
-> فایل‌های مدل به دلیل حجم و شرایط مجوز، در Repository پروژه قرار داده نمی‌شوند مگر اینکه شرایط انتشار آن‌ها اجازه دهد.
-
----
-
-## اجرای پروژه
-
-### اجرای Webcam
-
-```bash
-python main.py
-```
-
-### اجرای ویدئو
-
-```bash
-python main.py --source video --video data/input/test.mp4
-```
-
-### غیرفعال کردن Face Recognition
-
-برای تست سریع‌تر Pipeline:
-
-```bash
-python main.py --no-recognition
-```
-
-### تعیین Camera Index
-
-```bash
-python main.py --camera 1
-```
-
-### تعیین دیتابیس
-
-```bash
-python main.py --database data/output/gaze_analytics.db
-```
-
-### تعیین Calibration File
-
-```bash
-python main.py --calibration data/calibration/screen_calibration.json
-```
-
-### تعیین تبلیغ فعلی
-
-```bash
-python main.py --ad-id ad_01
-```
-
----
-
-## کالیبراسیون
-
-برای تبدیل Gaze Direction به Gaze Point روی نمایشگر، سیستم به Calibration نیاز دارد.
-
-مدل فعلی Calibration از ویژگی‌های زیر استفاده می‌کند:
-
-```text
-gaze_yaw
-gaze_pitch
-head_yaw
-head_pitch
-head_roll
-face_x
-face_y
-```
-
-و آن‌ها را به:
-
-```text
-screen_x
-screen_y
-```
-
-تبدیل می‌کند.
-
-مختصات صفحه نرمال‌شده هستند:
-
-```text
-(0, 0)  ────────────────  (1, 0)
-  │                         │
-  │                         │
-  │          (0.5,0.5)      │
-  │                         │
-  │                         │
-(0, 1)  ────────────────  (1, 1)
-```
-
-کالیبراسیون کامل باید در آینده با یک `calibration_runner.py` تعاملی تکمیل شود تا کاربر نقاط مشخص روی نمایشگر را دنبال کند و نمونه‌های Calibration جمع‌آوری شوند.
-
----
-
-## شناسايی افراد
-
-Tracking و Recognition در این پروژه دو مفهوم مستقل هستند.
-
-```text
-Track ID
-    ↓
-دنبال کردن فرد در فریم‌ها
-```
-
-در مقابل:
-
-```text
-Person ID
-    ↓
-شناسهٔ پایدار فرد در سیستم
-```
-
-مثلاً:
-
-```text
-Track ID  = 7
-Person ID = person_0015
-```
-
-Track ID ممکن است هنگام خروج و ورود دوبارهٔ فرد تغییر کند، ولی Person ID می‌تواند ثابت باقی بماند.
-
-### Gallery
-
-هویت افراد در Gallery داخلی پروژه ذخیره می‌شود.
-
-نمونه مسیر:
-
-```text
-data/faces/gallery.json
-```
-
----
-
-## ذخیره‌سازی داده
-
-پایگاه دادهٔ پیش‌فرض:
-
-```text
-data/output/gaze_analytics.db
-```
-
-جداول اصلی:
-
-### `persons`
-
-اطلاعات هویتی و آماری افراد شناخته‌شده.
-
-### `ads`
-
-اطلاعات تبلیغات.
-
-### `look_events`
-
-هر رویداد کامل نگاه.
-
-### `gaze_points`
-
-نمونه‌های نقطهٔ نگاه برای Heatmap.
-
-### `person_statistics`
-
-آمار تجمیعی افراد.
-
-### `ad_statistics`
-
-آمار تجمیعی تبلیغات.
-
-### `analytics_sessions`
-
-اطلاعات اجرای کامل سیستم.
-
----
-
-## Look Event
-
-هر Look Event می‌تواند شامل اطلاعات زیر باشد:
-
-```text
-person_id
-track_id
-ad_id
-start_time
-end_time
-duration
-
-gaze_yaw
-gaze_pitch
-
-head_yaw
-head_pitch
-head_roll
-
-gaze_confidence
-attention_score
-
-gaze_x
-gaze_y
-```
-
-مثال مفهومی:
-
-```json
-{
-    "event_id": 17,
-    "person_id": "person_0015",
-    "track_id": 7,
-    "ad_id": "ad_03",
-    "duration_ms": 4730,
-    "attention_score": 0.87,
-    "gaze": {
-        "yaw": -0.18,
-        "pitch": 0.07,
-        "gaze_confidence": 0.91,
-        "gaze_x": 0.72,
-        "gaze_y": 0.34
-    }
-}
-```
-
----
-
-## Heatmap
-
-Heatmap از `gaze_points` ذخیره‌شده ساخته می‌شود.
-
-```text
-Gaze Points
-     ↓
-Spatial Accumulation
-     ↓
-Gaussian Blur
-     ↓
-Normalization
-     ↓
-Color Mapping
-     ↓
-Advertisement Heatmap
-```
-
-نمونه استفاده:
-
-```python
-from src.analytics.heatmap import (
-    HeatmapGenerator,
-    HeatmapConfig,
-)
-from src.storage.database import Database
-
-
-database = Database(
-    "data/output/gaze_analytics.db"
-)
-
-database.connect()
-database.initialize()
-
-heatmap = HeatmapGenerator(
-    HeatmapConfig(
-        width=1920,
-        height=1080,
-    )
-)
-
-result = heatmap.generate_from_database(
-    database,
-    ad_id="ad_01",
-)
-
-HeatmapGenerator.save(
-    result.heatmap,
-    "data/output/ad_01_heatmap.jpg",
-)
-
-database.close()
-```
-
----
-
-## معماری ماژول‌ها
-
-### `input`
-
-مسئول دریافت داده از Webcam و Video File.
-
-### `vision`
-
-مسئول Face Landmarker، Head Pose و ابزارهای پردازش landmark.
-
-### `gaze`
-
-هستهٔ Gaze Estimation:
-
+# Technologies 🛠️
+
+- Python
+- PyTorch
+- OpenCV
+- MediaPipe
 - L2CS-Net
-- Gaze Estimator
-- Gaze Fusion
+- InsightFace
+- ArcFace
+- ONNX Runtime
+- NumPy
+- SQLite
+
+# Current Features ✅
 
-### `tracking`
+- Real-time webcam processing
+- Video file processing
+- Face detection
+- 478 facial landmarks
+- Head pose estimation
+- Deep learning based gaze estimation
+- Multi-face tracking
+- Face recognition
+- Person identification
+- Gaze fusion
+- Screen calibration
+- Gaze point estimation
+- Attention detection
+- Look session management
+- SQLite storage
+- Gaze point storage
+- Advertisement statistics
+- Person statistics
+- Gaze heatmaps
+- Real-time visualization
 
-مدیریت Track ID و دنبال کردن چهره‌ها در زمان.
+# Development Roadmap 🚧
 
-### `recognition`
+### Phase 1 — Core Gaze Pipeline
 
-تولید Embedding و تخصیص Person ID.
+- MediaPipe integration
+- L2CS-Net integration
+- Head pose
+- Gaze fusion
+- Real-time visualization
 
-### `calibration`
+### Phase 2 — Attention Analytics
 
-تبدیل اطلاعات Gaze/Head Pose به مختصات نرمال‌شدهٔ صفحه.
+- Screen calibration
+- Gaze point estimation
+- Attention scoring
+- Look sessions
+- Advertisement events
 
-### `attention`
+### Phase 3 — Recognition & Tracking
 
-تعیین نگاه معتبر و مدیریت Sessionهای توجه.
+- Face recognition
+- Persistent identities
+- Improved multi-object tracking
+- Identity stability
 
-### `analytics`
+### Phase 4 — Advanced Analytics
 
-تجمیع آمار و تولید Heatmap.
+- Advertisement heatmaps
+- ROI analysis
+- Attention over time
+- Viewer comparison
+- Advertisement ranking
 
-### `storage`
+### Phase 5 — Optimization
 
-مدل داده و ارتباط با SQLite.
+- GPU inference
+- ONNX optimization
+- Faster face recognition
+- Better tracking
+- Improved gaze calibration
 
-### `visualization`
+# Great Resources 📚
 
-نمایش اطلاعات پردازشی روی فریم.
+- [MediaPipe Face Landmarker](https://developers.google.com/mediapipe/solutions/vision/face_landmarker)
+- [L2CS-Net](https://github.com/Ahmednull/L2CS-Net)
+- [InsightFace](https://github.com/deepinsight/insightface)
+- [PyTorch](https://pytorch.org/)
+- [OpenCV](https://opencv.org/)
 
----
+# Important Notes ⚠️
 
-## ملاحظات فنی
+This project currently uses pretrained models for face landmarks, face recognition, and gaze estimation.
 
-### L2CS-Net
+The gaze estimation pipeline is designed as a modular system so the pretrained L2CS-Net model can later be replaced or fine-tuned with a custom gaze model and project-specific dataset.
 
-L2CS-Net برای Gaze Estimation استفاده می‌شود و خروجی اصلی آن Yaw و Pitch است.
+The accuracy of screen gaze estimation depends on factors such as:
 
-در پیاده‌سازی پروژه، preprocessing باید با مدل pretrained استفاده‌شده سازگار باشد.
+- Camera position
+- Camera quality
+- Lighting
+- Viewer distance
+- Head orientation
+- Screen position
+- Calibration quality
 
-به‌دلیل وجود ناهماهنگی نام‌گذاری خروجی‌ها در نسخه‌های موجود Repository رسمی L2CS، decoding باید مطابق inference pipeline مدل مورد استفاده انجام شود و صرفاً بر اساس نام `fc_yaw_gaze` یا `fc_pitch_gaze` فرض‌سازی نشود.
+Therefore, the system should be evaluated using real-world test data before being used for production analytics.
 
-### MediaPipe
+# Who, When, Why?
 
-MediaPipe Face Landmarker در این پروژه وظیفهٔ استخراج اطلاعات ساختاری صورت را بر عهده دارد و جایگزین مستقیم L2CS-Net نیست.
+👨‍💻 Author: Javid
 
-### Gaze Fusion
+📅 Version: 1.x
 
-در نسخهٔ فعلی، Gaze Fusion یک روش مهندسی/Heuristic است. این بخش در آینده می‌تواند با یک مدل learned fusion یا هندسهٔ سه‌بعدی دوربین و نمایشگر ارتقا یابد.
+🎯 Purpose: Advertisement Gaze & Attention Analytics
 
-### Attention Score
+🧠 Main Models: MediaPipe Face Landmarker + L2CS-Net
 
-`attention_score` در نسخهٔ فعلی یک امتیاز مهندسی‌شده است و نباید بدون Calibration و Validation به‌عنوان احتمال واقعی تفسیر شود.
-
----
-
-## محدودیت‌های فعلی
-
-- Calibration تعاملی هنوز به‌صورت کامل پیاده‌سازی نشده است.
-- Gaze Point به کیفیت Calibration وابسته است.
-- Tracker فعلی نسخهٔ سبک IoU-based است و برای Occlusionهای شدید مناسب مدل‌های MOT پیشرفته نیست.
-- Recognition در نسخهٔ فعلی ممکن است detection تکراری انجام دهد و بعداً باید مستقیماً به ArcFace ONNX متصل شود.
-- Gaze Fusion هنوز یک مدل learned نیست.
-- ارزیابی علمی Accuracy باید با Dataset و Ground Truth واقعی پروژه انجام شود.
-- سرعت اجرای سیستم به سخت‌افزار، رزولوشن و تعداد چهره‌ها وابسته است.
-
----
-
-## ارزیابی پیشنهادی
-
-برای نسخهٔ پژوهشی، حداقل باید موارد زیر اندازه‌گیری شوند:
-
-### Face Detection
-
-- Precision
-- Recall
-- F1
-- Miss Rate
-- FPS
-
-### Face Recognition
-
-- Recognition Accuracy
-- False Acceptance Rate
-- False Rejection Rate
-- Cosine Similarity Distribution
-
-### Gaze Estimation
-
-- Angular Error
-- MAE
-- Gaze Direction Accuracy
-- Looking / Not Looking Precision
-- Looking / Not Looking Recall
-- F1
-
-### سیستم کامل
-
-- End-to-End FPS
-- Average Latency
-- CPU Usage
-- RAM Usage
-- GPU Usage
-- ID Switches
-- Session Fragmentation Rate
-
----
-
-## نقشه راه
-
-### فاز 1 — هستهٔ Deep Learning
-
-- [x] MediaPipe Face Landmarker integration
-- [x] L2CS-Net integration
-- [x] Head Pose
-- [x] Gaze Fusion
-- [x] Face Tracking پایه
-- [x] Face Recognition پایه
-- [x] Attention Engine
-- [x] Session Manager
-- [x] SQLite storage
-- [x] Heatmap generation
-- [x] Overlay
-
-### فاز 2 — Calibration و دقت
-
-- [ ] Interactive Screen Calibration
-- [ ] Camera Calibration
-- [ ] 3D Gaze Ray
-- [ ] Screen Plane Intersection
-- [ ] Improved Gaze Fusion
-- [ ] Temporal Smoothing
-- [ ] Gaze Confidence Calibration
-
-### فاز 3 — مقیاس‌پذیری
-
-- [ ] ByteTrack / BoT-SORT
-- [ ] Direct ArcFace ONNX inference
-- [ ] FAISS / ANN search
-- [ ] Batch inference
-- [ ] GPU optimization
-- [ ] ONNX Runtime pipeline
-
-### فاز 4 — تحلیل تبلیغات
-
-- [ ] Advertisement Scheduler
-- [ ] Advertisement ROI
-- [ ] ROI-level attention
-- [ ] Heatmap per advertisement
-- [ ] Dwell Time
-- [ ] Engagement Rate
-- [ ] Attention comparison between advertisements
-
-### فاز 5 — محصول‌سازی
-
-- [ ] REST API
-- [ ] Web Dashboard
-- [ ] Real-time KPIs
-- [ ] Export JSON / CSV
-- [ ] Multi-camera support
-- [ ] PostgreSQL
-- [ ] Privacy / retention policies
-
----
-
-## ملاحظات حریم خصوصی
-
-این سیستم با داده‌های بیومتریک و تصویری سروکار دارد. بنابراین قبل از استفادهٔ واقعی باید حداقل موارد زیر تعریف شود:
-
-- اطلاع‌رسانی شفاف به افراد حاضر در محدودهٔ دوربین
-- تعیین هدف جمع‌آوری داده
-- تعیین مدت نگهداری داده
-- محدود کردن دسترسی به Embeddingها
-- امکان حذف داده‌های فرد
-- جلوگیری از ذخیرهٔ غیرضروری تصویر خام
-- بررسی الزامات قانونی و مقررات محلی
-
-> این Repository یک پروژهٔ تحقیقاتی/فنی است و مسئولیت رعایت قوانین مربوط به حریم خصوصی و داده‌های بیومتریک بر عهدهٔ بهره‌بردار سیستم است.
-
----
-
-## منابع اصلی
-
-### MediaPipe Face Landmarker
-
-Google MediaPipe:
-
-https://developers.google.com/mediapipe/solutions/vision/face_landmarker
-
-### L2CS-Net
-
-Repository رسمی:
-
-https://github.com/Ahmednull/L2CS-Net
-
-### InsightFace
-
-Repository رسمی:
-
-https://github.com/deepinsight/insightface
-
----
-
-## وضعیت فعلی پروژه
-
-در حال حاضر پروژه در مرحلهٔ **Prototype یکپارچهٔ Deep Learning** قرار دارد.
-
-هستهٔ اصلی شامل این اجزا است:
-
-```text
-MediaPipe
-     +
-L2CS-Net
-     +
-Head Pose
-     +
-Tracking
-     +
-Face Recognition
-     +
-Gaze Fusion
-     +
-Calibration
-     +
-Attention Engine
-     +
-Session Management
-     +
-SQLite
-     +
-Heatmap
-     +
-Visualization
-```
-
-هدف مرحلهٔ بعد، ایجاد یک **End-to-End pipeline پایدار با Calibration واقعی و Benchmark کمی** است.
-
----
-
-## License
-
-لایسنس نهایی پروژه باید جداگانه تعیین شود.
-
-توجه داشته باشید که استفاده و انتشار مدل‌ها و کتابخانه‌های شخص ثالث باید مطابق مجوز خود آن‌ها انجام شود.
+📜 License: To be added
