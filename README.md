@@ -8,10 +8,6 @@ More than just detecting whether someone is looking at a screen, the goal is to 
 
 ---
 
-## See it live and in action 📺 - Click the image!
-
-Link to be added.
-
 # Setup 🪛
 
 ### 1. Clone the repository
